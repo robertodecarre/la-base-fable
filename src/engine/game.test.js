@@ -6,7 +6,19 @@ const C = (palo, valor, mazo = 0) => ({ palo, valor, mazo, id: `${palo}-${valor}
 const juega = (estado, jugador, palo, valor, mazo = 0) =>
   gameReducer(estado, { type: 'JUGAR_CARTA', jugador, cartaId: `${palo}-${valor}-${mazo}` });
 
-const pide = (estado, equipo, valor) => gameReducer(estado, { type: 'PEDIR', equipo, valor });
+const pide = (estado, equipo, valor) =>
+  gameReducer(estado, {
+    type: 'PEDIR',
+    equipo,
+    jugador: estado.config.capitanes[equipo],
+    valor,
+  });
+
+const declaraKamikaze = (estado, equipo) =>
+  gameReducer(estado, {
+    type: 'DECLARAR_KAMIKAZE',
+    jugador: estado.config.capitanes[equipo],
+  });
 
 // Arranca una partida y sortea con pie y manos forzadas.
 function partida({
@@ -207,7 +219,7 @@ describe('kamikaze', () => {
 
   it('declarado: restringe el pedido a todo o nada y blinda contra el -2', () => {
     let e = partida({ manos, estructura: [2], ases: { espadas: false } });
-    e = gameReducer(e, { type: 'DECLARAR_KAMIKAZE' });
+    e = declaraKamikaze(e, 0);
     expect(e.kamikazeDeclarado).toBe(0);
     expect(e.kamikazesRestantes).toBe(0);
     expect(opcionesDePedido(e)).toEqual([0, 2]);
@@ -252,7 +264,7 @@ describe('kamikaze', () => {
   it('el pool es único y compartido entre los dos equipos', () => {
     const manoDe1 = [[C('oros', 2)], [C('oros', 3)], [C('oros', 4)], [C('oros', 5)]];
     let e = partida({ manos: manoDe1, estructura: [1, 1], kamikazes: 1 });
-    e = gameReducer(e, { type: 'DECLARAR_KAMIKAZE' }); // declara el equipo 0 (mano)
+    e = declaraKamikaze(e, 0); // declara el equipo 0 (mano)
     expect(e.kamikazesRestantes).toBe(0);
     e = pide(e, 0, 0);
     e = pide(e, 1, 0);
@@ -267,7 +279,7 @@ describe('kamikaze', () => {
     e = gameReducer(e, { type: 'CONTINUAR', manosForzadas: manoDe1 });
     expect(equipoDe(e.jugadorMano)).toBe(1);
     const antes = e;
-    e = gameReducer(e, { type: 'DECLARAR_KAMIKAZE' });
+    e = declaraKamikaze(e, 1);
     expect(e).toBe(antes); // sin kamikazes restantes, la declaración no pasa
   });
 
@@ -275,8 +287,17 @@ describe('kamikaze', () => {
     let e = partida({ manos, estructura: [2] });
     e = pide(e, 0, 1);
     const antes = e;
-    e = gameReducer(e, { type: 'DECLARAR_KAMIKAZE' });
+    e = declaraKamikaze(e, 0);
     expect(e).toBe(antes);
+  });
+
+  it('un jugador que no es el capitán no puede confirmar el pedido ni declarar kamikaze', () => {
+    let e = partida({ manos, estructura: [2] });
+    const antes = e;
+    expect(gameReducer(e, { type: 'DECLARAR_KAMIKAZE', jugador: 2 })).toBe(antes);
+    expect(
+      gameReducer(e, { type: 'PEDIR', equipo: 0, jugador: 2, valor: 1 }),
+    ).toBe(antes);
   });
 });
 

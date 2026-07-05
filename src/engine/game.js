@@ -56,7 +56,7 @@ export function gameReducer(estado, accion) {
     case 'SORTEAR':
       return sortear(estado, accion);
     case 'DECLARAR_KAMIKAZE':
-      return declararKamikaze(estado);
+      return declararKamikaze(estado, accion);
     case 'PEDIR':
       return pedir(estado, accion);
     case 'JUGAR_CARTA':
@@ -85,6 +85,14 @@ function iniciarPartida(estado, accion) {
   };
   if (![4, 6, 8].includes(cfg.nJugadores)) return estado;
   if (!cfg.nombres) cfg.nombres = NOMBRES_DEFAULT.slice(0, cfg.nJugadores);
+  const capitanesValidos = [0, 1].every(
+    (eq) =>
+      Number.isInteger(cfg.capitanes[eq]) &&
+      cfg.capitanes[eq] >= 0 &&
+      cfg.capitanes[eq] < cfg.nJugadores &&
+      cfg.capitanes[eq] % 2 === eq,
+  );
+  if (!capitanesValidos) cfg.capitanes = [0, 1];
   const cartasPorMano = estructuraEfectiva(
     cfg.estructuraCustom ?? cfg.estructura,
     cfg.nJugadores,
@@ -149,10 +157,11 @@ function repartirNuevaMano(estado, manosForzadas) {
   };
 }
 
-function declararKamikaze(estado) {
+function declararKamikaze(estado, { jugador } = {}) {
   if (estado.fase !== 'pedir') return estado;
   const equipoMano = equipoDe(estado.jugadorMano);
   if (estado.turnoPedir !== equipoMano) return estado; // solo antes del pedido del equipo mano
+  if (estado.config.capitanes[equipoMano] !== jugador) return estado;
   if (estado.kamikazeDeclarado !== null || estado.kamikazesRestantes <= 0) return estado;
   return {
     ...estado,
@@ -161,8 +170,9 @@ function declararKamikaze(estado) {
   };
 }
 
-function pedir(estado, { equipo, valor }) {
+function pedir(estado, { equipo, jugador, valor }) {
   if (estado.fase !== 'pedir' || equipo !== estado.turnoPedir) return estado;
+  if (estado.config.capitanes[equipo] !== jugador) return estado;
   if (!opcionesDePedido(estado).includes(valor)) return estado;
   const pedidos = [...estado.pedidos];
   pedidos[equipo] = valor;
